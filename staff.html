@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Registrations</title>
+<style>
+:root{--bg:#eef2f1;--pn:#fff;--tx:#10231f;--mu:#5d716c;--bd:#d5dfdc;--ac:#0f5c63;--ac2:#e6f1f0;--ok:#1f7a45;--warn:#b86e00;--bad:#b3261e}
+@media(prefers-color-scheme:dark){:root{--bg:#0d1716;--pn:#14221f;--tx:#e6f0ee;--mu:#8fa6a1;--bd:#253935;--ac:#4fc3c9;--ac2:#18302e;--ok:#4cc982;--warn:#f0a63c;--bad:#ff8a80}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.45 "Segoe UI",system-ui,sans-serif}
+header{display:flex;flex-wrap:wrap;gap:10px;justify-content:space-between;align-items:center;padding:14px 22px;background:var(--pn);border-bottom:2px solid var(--ac)}
+h1{margin:0;font:700 19px Georgia,serif}h1 small{display:block;font:400 12px "Segoe UI",sans-serif;color:var(--mu)}h2{font:700 16px Georgia,serif;margin:0 0 12px}
+main{max-width:1000px;margin:auto;padding:20px 22px}.pn{background:var(--pn);border:1px solid var(--bd);border-radius:8px;padding:18px;margin-bottom:22px;overflow:auto}
+.g{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:4px 14px}label{display:block;font-size:13px;color:var(--mu);margin:10px 0 3px}
+input,select,textarea{width:100%;font:inherit;padding:8px 10px;border:1px solid var(--bd);border-radius:6px;background:var(--pn);color:var(--tx)}
+button{font:inherit;border:1px solid var(--bd);background:var(--pn);color:var(--tx);padding:8px 14px;border-radius:6px;cursor:pointer}button.pri{background:var(--ac);color:#fff;border-color:var(--ac)}
+table{border-collapse:collapse;width:100%}th,td{padding:8px 10px;text-align:left;border-bottom:1px solid var(--bd);vertical-align:top}th{font-size:12.5px;color:var(--mu);background:var(--ac2)}
+.tag{display:inline-block;padding:2px 10px;border-radius:12px;font-size:12.5px;font-weight:700}.pending{color:var(--warn);border:1px solid var(--warn)}.approved{background:var(--ok);color:#fff}.rejected{background:var(--bad);color:#fff}
+#note{margin-left:12px}#note.bad{color:var(--bad)}#note.ok{color:var(--ok)}.empty{color:var(--mu);text-align:center;padding:24px}
+</style></head><body>
+<header><h1><span id="sch">Student Tracker</span><small>Employee portal · <span id="who"></span></small></h1><button id="bOut">Sign out</button></header>
+<main>
+<div class="pn"><h2>New student registration</h2>
+<div class="g"><div><label>Student name</label><input id="fN"></div><div><label>Phone (WhatsApp)</label><input id="fP" placeholder="06 12 34 56 78"></div>
+<div><label>Group</label><select id="fG"></select></div><div><label>Start date</label><input id="fD" type="date"></div><div><label>Monthly fee (MAD)</label><input id="fF" type="number" min="0"></div></div>
+<label style="display:flex;gap:8px;align-items:center;margin-top:14px"><input type="checkbox" id="fC" style="width:18px;height:18px"> First payment already received</label>
+<div class="g" id="pay" hidden><div><label>Payment date</label><input id="fY" type="date"></div><div><label>Amount paid (MAD)</label><input id="fA" type="number" min="0"></div></div>
+<label>Note (optional)</label><input id="fO"><div style="margin-top:16px"><button class="pri" id="bSend">Send for approval</button><span id="note"></span></div></div>
+<div class="pn"><h2>My submissions</h2><table><tr><th>Sent<th>Student<th>Group<th>Start<th>Fee<th>Status</tr><tbody id="rows"></tbody></table></div>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script><script src="config.js"></script>
+<script>
+const sb=supabase.createClient(CFG.url,CFG.key),$=s=>document.querySelector(s),esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])),
+dmy=d=>d?d.slice(8,10)+"/"+d.slice(5,7)+"/"+d.slice(0,4):"—",tod=()=>{const n=new Date();return n.getFullYear()+"-"+String(n.getMonth()+1).padStart(2,"0")+"-"+String(n.getDate()).padStart(2,"0")},
+note=(t,bad)=>{$("#note").textContent=t;$("#note").className=bad?"bad":"ok"};let UID,GN={};
+async function boot(){const{data:{session}}=await sb.auth.getSession();if(!session){location.href="index.html";return}UID=session.user.id;
+ const{data:p}=await sb.from("profiles").select("role,status,full_name").eq("id",UID).maybeSingle();
+ if(!p||p.status!=="approved"){location.href="index.html";return}if(p.role==="admin"){location.href="admin.html";return}
+ $("#sch").textContent=CFG.name||"Student Tracker";document.title="Registrations – "+$("#sch").textContent;$("#who").textContent=p.full_name||session.user.email;$("#fY").value=tod();
+ const{data:g}=await sb.from("groups").select("id,name").order("name");(g||[]).forEach(x=>GN[x.id]=x.name);
+ $("#fG").innerHTML='<option value="">Choose a group…</option>'+(g||[]).map(x=>`<option value="${x.id}">${esc(x.name)}`).join("");list()}
+async function list(){const{data,error}=await sb.from("registrations").select("*").order("created_at",{ascending:false}).limit(200);
+ $("#rows").innerHTML=error?`<tr><td colspan=6>${esc(error.message)}`:(data||[]).map(r=>`<tr><td>${esc(r.created_at.slice(0,10))}</td><td>${esc(r.name)}</td><td>${esc(GN[r.group_id]||"—")}</td><td>${dmy(r.start_date)}</td><td>${r.price}</td>
+ <td><span class="tag ${r.status}">${r.status[0].toUpperCase()+r.status.slice(1)}</span>${r.status==="rejected"&&r.reject_reason?"<br><small>"+esc(r.reject_reason)+"</small>":""}</td></tr>`).join("")||'<tr><td colspan=6 class="empty">No submissions yet.'}
+$("#fC").onchange=()=>{$("#pay").hidden=!$("#fC").checked;if($("#fC").checked&&!$("#fA").value)$("#fA").value=$("#fF").value};
+$("#bSend").onclick=async()=>{const c=$("#fC").checked,v={name:$("#fN").value.trim(),phone:$("#fP").value.replace(/\s/g,"")||null,group_id:$("#fG").value,start_date:$("#fD").value||null,price:parseFloat($("#fF").value)||0,
+ first_payment:c,first_payment_amount:c?(parseFloat($("#fA").value)||0):null,first_payment_date:c?($("#fY").value||null):null,note:$("#fO").value.trim()||null,submitted_by:UID};
+ if(!v.name||!v.group_id){note("Please enter the student's name and choose a group.",1);return}
+ const{error}=await sb.from("registrations").insert(v);if(error){note(error.message,1);return}
+ ["fN","fP","fD","fF","fO","fA"].forEach(i=>$("#"+i).value="");$("#fC").checked=false;$("#pay").hidden=true;note("Sent. The main admin will review it.");list()};
+$("#bOut").onclick=async()=>{await sb.auth.signOut();location.href="index.html"};
+boot();
+</script></body></html>

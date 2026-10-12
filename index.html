@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Sign in</title>
+<style>
+:root{--bg:#eef2f1;--pn:#fff;--tx:#10231f;--mu:#5d716c;--bd:#d5dfdc;--ac:#0f5c63;--ac2:#e6f1f0;--ok:#1f7a45;--bad:#b3261e}
+@media(prefers-color-scheme:dark){:root{--bg:#0d1716;--pn:#14221f;--tx:#e6f0ee;--mu:#8fa6a1;--bd:#253935;--ac:#4fc3c9;--ac2:#18302e;--ok:#4cc982;--bad:#ff8a80}}
+*{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;background:var(--bg);color:var(--tx);font:15px/1.45 "Segoe UI",system-ui,sans-serif}
+.card{width:min(420px,92vw);background:var(--pn);border:1px solid var(--bd);border-top:3px solid var(--ac);border-radius:10px;padding:26px}
+h1{margin:0;font:700 22px Georgia,serif}p.sub{margin:2px 0 18px;color:var(--mu)}
+.tabs{display:flex;gap:6px;margin-bottom:14px}.tabs button{flex:1}
+button{font:inherit;border:1px solid var(--bd);background:var(--pn);color:var(--tx);padding:9px 14px;border-radius:6px;cursor:pointer}button.on,button.pri{background:var(--ac);color:#fff;border-color:var(--ac)}
+label{display:block;font-size:13px;color:var(--mu);margin:12px 0 3px}input{width:100%;font:inherit;padding:9px 10px;border:1px solid var(--bd);border-radius:6px;background:var(--pn);color:var(--tx)}
+.pri{width:100%;margin-top:16px}#msg{min-height:1.4em;margin:12px 0 0}#msg.bad{color:var(--bad)}#msg.ok{color:var(--ok)}
+</style></head><body>
+<div class="card"><h1 id="sch">Student Tracker</h1><p class="sub">Staff portal</p>
+<div class="tabs"><button id="tIn" class="on">Sign in</button><button id="tUp">Request access</button></div>
+<div id="fIn"><label>Email</label><input id="iE" type="email" autocomplete="username"><label>Password</label><input id="iP" type="password" autocomplete="current-password"><button class="pri" id="bIn">Sign in</button></div>
+<div id="fUp" hidden><label>Full name</label><input id="uN" autocomplete="name"><label>Email</label><input id="uE" type="email" autocomplete="username"><label>Password (8+ characters)</label><input id="uP" type="password" autocomplete="new-password"><button class="pri" id="bUp">Request access</button></div>
+<p id="msg"></p></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script><script src="config.js"></script>
+<script>
+const sb=supabase.createClient(CFG.url,CFG.key),$=s=>document.querySelector(s),msg=(t,bad)=>{$("#msg").textContent=t;$("#msg").className=bad?"bad":"ok"};
+$("#sch").textContent=CFG.name||"Student Tracker";document.title="Sign in – "+$("#sch").textContent;
+const show=u=>{$("#fIn").hidden=!u;$("#fUp").hidden=u;$("#tIn").className=u?"on":"";$("#tUp").className=u?"":"on";msg("")};
+$("#tIn").onclick=()=>show(true);$("#tUp").onclick=()=>show(false);
+async function route(){const{data:{session}}=await sb.auth.getSession();if(!session)return;
+ const{data:p,error}=await sb.from("profiles").select("role,status").eq("id",session.user.id).maybeSingle();
+ if(error||!p){msg("Your profile could not be loaded. Please try again.",1);return}
+ if(p.status==="approved"){location.href=p.role==="admin"?"admin.html":"staff.html";return}
+ await sb.auth.signOut();
+ msg(p.status==="pending"?"Your access request is waiting for the main admin's approval. You can sign in once it is approved.":"Your access request was not approved. Please contact the main admin.",p.status!=="pending")}
+$("#bIn").onclick=async()=>{const{error}=await sb.auth.signInWithPassword({email:$("#iE").value.trim(),password:$("#iP").value});if(error){msg(error.message,1);return}route()};
+$("#bUp").onclick=async()=>{const n=$("#uN").value.trim(),e=$("#uE").value.trim(),p=$("#uP").value;if(!n||!e||p.length<8){msg("Enter your name, email and a password of at least 8 characters.",1);return}
+ const{data,error}=await sb.auth.signUp({email:e,password:p,options:{data:{full_name:n}}});if(error){msg(error.message,1);return}
+ if(data.session)await sb.auth.signOut();show(true);msg("Request sent. The main admin must approve it before you can sign in."+(data.session?"":" If you received a confirmation email, confirm it first."))};
+route();
+</script></body></html>
