@@ -34,10 +34,10 @@ dialog label{display:block;font-size:13px;color:var(--mu);margin:10px 0 3px}dial
 input:disabled,select:disabled{opacity:.5;cursor:not-allowed;background:var(--ac2)}.flash{background:var(--ac2);border:1px solid var(--ac);border-radius:8px;padding:10px 14px;margin-bottom:14px}
 .cd.wait{color:var(--warn);border:1px solid var(--warn)}.cd.done{background:var(--ok);color:#fff}.cd.lead{color:var(--ac);border:1px solid var(--ac)}.cd+.cd{margin-left:6px}
 td.wrap{white-space:normal;min-width:160px}
-#dR{width:min(900px,96vw)}#dR iframe{width:100%;height:62vh;border:1px solid var(--bd);border-radius:6px;background:#fff}#rpBar{display:flex;gap:10px;align-items:center;margin:0 0 10px}#rpBar input{width:auto}.btn.danger{color:var(--bad);border-color:var(--bad)}.btn:disabled{opacity:.45;cursor:not-allowed}#dB p{margin:8px 0}#dB ul{margin:6px 0 10px;padding-left:20px}
+#dR{width:min(900px,96vw)}#dR iframe{width:100%;height:62vh;border:1px solid var(--bd);border-radius:6px;background:#fff}#rpBar{display:flex;gap:10px;align-items:center;margin:0 0 10px}#rpBar input{width:auto}.btn.danger{color:var(--bad);border-color:var(--bad)}.btn:disabled{opacity:.45;cursor:not-allowed}#dB p,#dG p{margin:8px 0}#dG label.r{display:flex;gap:8px;align-items:flex-start;color:var(--tx);margin:10px 0 4px}#dG label.r input{width:auto;margin-top:4px}#dG .sub{margin-left:26px}#dB ul{margin:6px 0 10px;padding-left:20px}
 </style></head><body>
 <header><h1><span id="sch">Student Tracker</span><small id="sub">Portal · live data</small></h1>
-<nav><button id="t-dash" class="on">Dashboard</button> <button id="t-stu">Students</button> <button id="t-mon">Monthly</button> <button id="t-lead">Leads <b id="leadN" class="tag"></b></button> <button id="t-reg" hidden>New registration</button> <button id="t-rgs" hidden>Registrations <b id="rgsN" class="tag"></b></button> <button id="t-apr" hidden>Approvals <b id="aprN" class="tag"></b></button></nav>
+<nav><button id="t-dash" class="on">Dashboard</button> <button id="t-stu">Students</button> <button id="t-mon">Monthly</button> <button id="t-grp" hidden>Groups</button> <button id="t-lead">Leads <b id="leadN" class="tag"></b></button> <button id="t-reg" hidden>New registration</button> <button id="t-rgs" hidden>Registrations <b id="rgsN" class="tag"></b></button> <button id="t-apr" hidden>Approvals <b id="aprN" class="tag"></b></button></nav>
 <div><button class="btn" id="bAdd">Add student</button> <button class="btn" id="bGrp">Add group</button> <button class="btn" id="bImp">Import list</button> <button class="btn" id="bCsv">Export CSV</button> <button class="btn" id="bRep">PDF report</button> <button class="btn" id="bBak">Backup</button> <button class="btn" id="bRes">Restore</button> <button class="btn" id="bRef">Refresh</button> <button class="btn" id="bOut">Sign out</button><input type="file" id="fRes" accept=".json" hidden></div></header>
 <main id="app"></main>
 <dialog id="dP"><h2 id="pT" style="margin-top:0">Record payment</h2><label>Payment date</label><input id="pD" type="date"><label>Amount (MAD)</label><input id="pA" type="number" min="0"><label>Note (optional)</label><input id="pN">
@@ -49,6 +49,7 @@ td.wrap{white-space:normal;min-width:160px}
 <div class="row"><button class="btn" id="sUndo" style="margin-right:auto" hidden>Undo last payment</button><button class="btn" id="sX">Cancel</button><button class="btn pri" id="sOk">Save student</button></div></dialog>
 <dialog id="dR"><h2 id="rT" style="margin-top:0">Receipt</h2><div id="rpBar" hidden><label style="margin:0">Month</label><input type="month" id="rpM"></div><iframe id="rF" title="Preview"></iframe><p style="color:var(--mu);margin:8px 0 0;font-size:13px">Click Print / Save as PDF, then choose “Save as PDF” as the destination.</p><div class="row"><button class="btn" id="rX">Close</button><button class="btn pri" id="rPr">Print / Save as PDF</button></div></dialog>
 <dialog id="dB"><h2 id="bT" style="margin-top:0">Delete students</h2><div id="bBody"></div><p id="bM" class="bad" style="min-height:1.3em"></p><div class="row"><button class="btn" id="bX">Cancel</button><button class="btn danger" id="bOk">Delete</button></div></dialog>
+<dialog id="dG"><h2 id="gT" style="margin-top:0"></h2><div id="gBody"></div><p id="gM" class="bad" style="min-height:1.3em"></p><div class="row"><button class="btn" id="gX">Cancel</button><button class="btn pri" id="gOk">OK</button></div></dialog>
 <dialog id="dI"><h2 style="margin-top:0">Import a list</h2><p style="color:var(--mu);margin:0 0 6px">One student per line: <b>name | phone | date | price | paid | note</b> (use 1 or OUI when paid). To import several groups at once, start each with a line like <b># Group name</b>. Pasting rows copied from Excel also works.</p>
 <label>Excel or CSV file (.xlsx, .csv, .txt)</label><input type="file" id="iF" accept=".xlsx,.xlsm,.csv,.tsv,.txt">
 <label>Existing group</label><select id="iG"></select><label>…or new group name</label><input id="iN" placeholder="e.g. A1 – Kenza G2"><label>Rows (a chosen file is converted here so you can review and fix it first)</label><textarea id="iT" rows="8"></textarea>
@@ -89,7 +90,7 @@ async function sync(){try{S.students.forEach(s=>{s.paid=S.pay.some(x=>x.s===s.id
  if(gD.length)ck(await sb.from("groups").delete().in("id",gD));
  snap()}catch(e){alert("Could not save to the database: "+(e.message||e)+"\nReload the page to see what is actually saved.")}}
 const save=()=>{if(ROLE!=="admin")return;q=q.then(sync)};
-function applyRole(){const A=ROLE==="admin";["bAdd","bGrp","bImp","bCsv","bBak","bRes","bRep","t-apr"].forEach(i=>$("#"+i).hidden=!A);["t-reg","t-rgs"].forEach(i=>$("#"+i).hidden=A);$("#sub").textContent=(A?"Admin":"Employee")+" portal · live data"}
+function applyRole(){const A=ROLE==="admin";["bAdd","bGrp","bImp","bCsv","bBak","bRes","bRep","t-apr","t-grp"].forEach(i=>$("#"+i).hidden=!A);["t-reg","t-rgs"].forEach(i=>$("#"+i).hidden=A);$("#sub").textContent=(A?"Admin":"Employee")+" portal · live data"}
 async function boot(){$("#app").innerHTML='<p class="empty">Loading…</p>';const{data:{session}}=await sb.auth.getSession();
  if(!session){location.href="index.html";return}UID=session.user.id;
  const{data:p}=await sb.from("profiles").select("role,status").eq("id",UID).maybeSingle();
@@ -131,7 +132,7 @@ function stu(){const q=F.q.toLowerCase(),rk=s=>{const i=info(s);return i.due==nu
  {const vs=new Set(l.map(s=>s.id));[...SEL].forEach(id=>vs.has(id)||SEL.delete(id))}
  const AD=ROLE==="admin";
  return`<div class=tools><input id=fq placeholder="Search name or phone" value="${esc(F.q)}"><select id=fg><option value="">All groups${S.groups.map(g=>`<option value="${g.id}"${F.g===g.id?" selected":""}>${esc(g.name)}`).join("")}</select>
- <select id=fs>${o.map(([v,t])=>`<option value="${v}"${F.st===v?" selected":""}>${t}`).join("")}</select><span class=tag style="align-self:center">${l.length} shown</span>${AD?` <button class="btn danger" id="bDel" ${SEL.size?"":"disabled"}>Delete selected (${SEL.size})</button>`:""}</div>
+ <select id=fs>${o.map(([v,t])=>`<option value="${v}"${F.st===v?" selected":""}>${t}`).join("")}</select><span class=tag style="align-self:center">${l.length} shown</span>${AD?` <button class="btn" id="bMv" ${SEL.size?"":"disabled"}>Move selected (${SEL.size})</button> <button class="btn danger" id="bDel" ${SEL.size?"":"disabled"}>Delete selected (${SEL.size})</button>`:""}</div>
  <div class=pn><table><tr>${AD?`<th><input type=checkbox data-selall aria-label="Select all shown"${l.length&&l.every(s=>SEL.has(s.id))?" checked":""}>`:""}<th>Name<th>Group<th>Phone<th>Start<th class=n>Price<th>Last paid<th>Next due<th>Countdown<th></tr>${l.map(s=>{const i=info(s);return`<tr>${AD?`<td><input type=checkbox data-sel="${s.id}" aria-label="Select ${esc(s.name)}"${SEL.has(s.id)?" checked":""}></td>`:""}<td>${esc(s.name)}</td><td>${esc(gn(s.g))}</td><td>${esc(s.phone)}${WA(s.phone)}</td><td>${esc(s.date)}</td><td class=n>${s.price}</td>
  <td>${i.last!=null?fmt(i.last):"—"}</td><td>${i.due!=null?fmt(i.due):"—"}</td><td>${cd(i)}${pendTag(s)}</td><td><button class="btn pri" data-pay="${s.id}">Record payment</button>${rcB(s)}${ROLE==="admin"?` <button class=btn data-e="${s.id}">Edit</button> <button class=btn data-d="${s.id}">Delete</button>`:""}</td></tr>`}).join("")||`<tr><td colspan=10 class=empty>No students match.`}</table></div>`}
 function mon(){const inM=ms=>ms!=null&&mkey(ms)===MO,pays=S.pay.filter(x=>x.st!=="rejected"&&inM(tms(x.date))).sort((a,b)=>a.date<b.date?1:-1),news=S.students.filter(s=>inM(sms(s.date))),
@@ -186,7 +187,7 @@ async function submitReg(){const paid=$("#rP").checked,name=$("#rN").value.trim(
  $("#rS").disabled=true;const r=RD&&RD.id?await sb.from("registrations").update(v).eq("id",RD.id):await sb.from("registrations").insert({...v,submitted_by:UID});$("#rS").disabled=false;
  if(r.error){err(r.error.message);return}
  RD=null;FL=paid?"Sent for approval. You can follow its status under Registrations.":"Lead saved. It will appear here until the student pays.";await loadAll();tab=paid?"rgs":"lead";draw()}
-function draw(){const V={dash,stu,mon,lead:leads,reg:regForm,rgs,apr};$("#app").innerHTML=(FL?`<div class=flash>${esc(FL)}</div>`:"")+(V[tab]||dash)();FL="";
+function draw(){const V={dash,stu,mon,grp,lead:leads,reg:regForm,rgs,apr};$("#app").innerHTML=(FL?`<div class=flash>${esc(FL)}</div>`:"")+(V[tab]||dash)();FL="";
  ["dash","stu","mon","lead","reg","rgs","apr"].forEach(k=>{const b=$("#t-"+k);if(b)b.className=tab===k?"on":""});
  const nL=REG.filter(r=>r.status==="lead").length,nW=REG.filter(r=>r.status==="pending").length,nP=S.pay.filter(x=>x.st==="pending").length;
  $("#leadN").textContent=nL||"";$("#rgsN").textContent=nW||"";$("#aprN").textContent=(nW+nP+STF.filter(p=>p.role==="staff"&&p.status==="pending").length)||"";
@@ -255,7 +256,7 @@ $("#iF").onchange=async e=>{const f=e.target.files[0];if(!f)return;const ext=f.n
   const chosen=$("#iN").value.trim()||$("#iG").value;
   $("#iT").value=parts.length===1&&chosen?parts[0][1]:parts.map(([n,l])=>"# "+n+"\n"+l).join("\n\n")}
  catch(x){alert("Could not read this file. Try saving it as CSV and choosing that instead.")}finally{e.target.value=""}};
-$("#t-dash").onclick=()=>{tab="dash";draw()};$("#t-stu").onclick=()=>{tab="stu";draw()};$("#t-mon").onclick=()=>{tab="mon";draw()};$("#t-apr").onclick=()=>{tab="apr";draw()};$("#t-lead").onclick=()=>{tab="lead";draw()};$("#t-reg").onclick=()=>{RD=null;tab="reg";draw()};$("#t-rgs").onclick=()=>{tab="rgs";draw()};$("#bRef").onclick=async()=>{try{await q;await loadAll();draw()}catch(e){alert("Could not refresh: "+(e.message||e))}};
+$("#t-dash").onclick=()=>{tab="dash";draw()};$("#t-stu").onclick=()=>{tab="stu";draw()};$("#t-mon").onclick=()=>{tab="mon";draw()};$("#t-grp").onclick=()=>{tab="grp";draw()};$("#t-apr").onclick=()=>{tab="apr";draw()};$("#t-lead").onclick=()=>{tab="lead";draw()};$("#t-reg").onclick=()=>{RD=null;tab="reg";draw()};$("#t-rgs").onclick=()=>{tab="rgs";draw()};$("#bRef").onclick=async()=>{try{await q;await loadAll();draw()}catch(e){alert("Could not refresh: "+(e.message||e))}};
 $("#app").onclick=async e=>{const t=e.target,k=t.closest("[data-fs]"),p=t.dataset.p,ed=t.dataset.e,d=t.dataset.d,gr=t.dataset.gr,gm=t.dataset.gm;
  if(k){F.st=k.dataset.fs;F.g="";F.q="";tab="stu";draw();return}
  const go=t.closest("[data-go]");if(go){tab=go.dataset.go==="lead"?"lead":(ROLE==="admin"?"apr":"rgs");draw();return}
@@ -263,6 +264,8 @@ $("#app").onclick=async e=>{const t=e.target,k=t.closest("[data-fs]"),p=t.datase
  if(t.dataset.sel!==undefined){t.checked?SEL.add(t.dataset.sel):SEL.delete(t.dataset.sel);updSel();return}
  if(t.dataset.selall!==undefined){document.querySelectorAll("[data-sel]").forEach(c=>{c.checked=t.checked;t.checked?SEL.add(c.dataset.sel):SEL.delete(c.dataset.sel)});updSel();return}
  if(t.id==="bDel"){openDel();return}
+ if(t.id==="bMv"){openG("move");return}
+ {const D=t.dataset,gid=D.gRen||D.gFee||D.gMrg||D.gDel||D.gCsv||D.gView;if(gid){grpAct(D,gid);return}}
  if(t.dataset.rc){openRc(t.dataset.rc);return}
  if(t.dataset.pay){openP(t.dataset.pay);return}
  const A=t.dataset,rl=async()=>{await q;await loadAll();draw()},up=async(tb,id,v)=>{const r=await sb.from(tb).update(v).eq("id",id);if(r.error){alert(r.error.message);return false}return true};
@@ -318,7 +321,7 @@ $("#bRep").onclick=()=>{$("#rpM").value=new Date(today()).toISOString().slice(0,
 $("#rpM").onchange=openRep;$("#rX").onclick=()=>$("#dR").close();$("#rPr").onclick=()=>{const w=$("#rF").contentWindow;w.focus();w.print()};
 /*END DOCS*/
 /*BULKDEL*/
-const updSel=()=>{const b=$("#bDel");if(b){b.textContent="Delete selected ("+SEL.size+")";b.disabled=!SEL.size}const a=document.querySelector("[data-selall]"),all=[...document.querySelectorAll("[data-sel]")];if(a)a.checked=all.length>0&&all.every(c=>c.checked)};
+const updSel=()=>{const b=$("#bDel"),mv=$("#bMv");if(mv){mv.textContent="Move selected ("+SEL.size+")";mv.disabled=!SEL.size}if(b){b.textContent="Delete selected ("+SEL.size+")";b.disabled=!SEL.size}const a=document.querySelector("[data-selall]"),all=[...document.querySelectorAll("[data-sel]")];if(a)a.checked=all.length>0&&all.every(c=>c.checked)};
 let BM="del";
 function renderB(mode){BM=mode;const n=SEL.size,names=S.students.filter(s=>SEL.has(s.id)).map(s=>s.name),m=$("#bM");m.textContent="";
  const F=(id,l,t="password")=>`<label>${l}</label><input id="${id}" type="${t}" autocomplete="new-password">`;
@@ -348,6 +351,61 @@ $("#bOk").onclick=async()=>{const m=$("#bM"),v=id=>($("#"+id)||{}).value||"",btn
   SEL.clear();$("#dB").close();FL=r.data.deleted+" student"+(r.data.deleted===1?"":"s")+" deleted.";await loadAll();draw()}
  finally{btn.disabled=false}};
 /*END BULKDEL*/
+/*GROUPS*/
+const sbG=id=>S.students.filter(s=>s.g===id);
+function grp(){const cm=mkey(today()),pm=x=>{const t=tms(x.date);return t==null?-1:mkey(t)},GQ=window.GQ||"";
+ const rows=S.groups.filter(g=>!GQ||g.name.toLowerCase().includes(GQ.toLowerCase())).slice().sort((a,b)=>a.name.localeCompare(b.name,undefined,{numeric:true})).map(g=>{const x=sbG(g.id),ids=new Set(x.map(s=>s.id)),inf=x.map(info),
+  col=S.pay.filter(p=>okP(p)&&pm(p)===cm&&ids.has(p.s)).reduce((a,p)=>a+p.amount,0),ov=inf.filter(i=>i.state==="over").length,so=inf.filter(i=>i.state==="soon"||i.state==="today").length;
+  return`<tr><td><b>${esc(g.name)}</b></td><td class=n>${x.length}</td><td class=n>${M(x.reduce((a,s)=>a+s.price,0))}</td><td class=n>${M(col)}</td><td class="n ${ov?"bad":""}">${ov}</td><td class="n ${so?"warn":""}">${so}</td>
+  <td style="white-space:nowrap"><button class=btn data-g-view="${g.id}">Students</button> <button class=btn data-g-ren="${g.id}">Rename</button> <button class=btn data-g-fee="${g.id}">Set fee</button> <button class=btn data-g-mrg="${g.id}">Merge</button> <button class=btn data-g-csv="${g.id}">Export</button> <button class="btn danger" data-g-del="${g.id}">Delete</button></td></tr>`}).join("");
+ const empty=S.groups.filter(g=>!sbG(g.id).length).length;
+ return`<div class=kpis><div class=kpi><span>Groups</span><b>${S.groups.length}</b></div><div class=kpi><span>Students</span><b>${S.students.length}</b></div><div class=kpi><span>Empty groups</span><b class="${empty?"warn":""}">${empty}</b></div></div>
+ <div class=tools><input id=gq placeholder="Search groups" value="${esc(GQ)}"><button class="btn pri" id="gAdd">Add group</button></div>
+ <div class=pn><table><tr><th>Group<th class=n>Students<th class=n>Monthly fees<th class=n>Collected this month<th class=n>Overdue<th class=n>Due in 7 days<th></tr>${rows||'<tr><td colspan=7 class=empty>No groups found.'}</table></div>
+ <p class=mu style="color:var(--mu);font-size:13px">Tip: to move only some students between groups, tick them on the Students tab and use <b>Move selected</b>.</p>`}
+function grpAct(D,id){const g=S.groups.find(x=>x.id===id);if(!g)return;
+ if(D.gView){F.g=id;F.st="";F.q="";tab="stu";draw();return}
+ if(D.gRen){const v=(prompt("Rename group",g.name)||"").trim();if(!v||v===g.name)return;if(S.groups.some(x=>x.id!==id&&x.name.toLowerCase()===v.toLowerCase())){alert("Another group already has that name. Use Merge to combine them.");return}g.name=v;save();FL="Group renamed.";draw();return}
+ if(D.gFee){const x=sbG(id);if(!x.length){alert("This group has no students.");return}const v=prompt("New monthly fee (MAD) for all "+x.length+" students in “"+g.name+"”",x[0].price);if(v===null)return;const n=parseFloat(v);if(!(n>=0)){alert("Enter a valid amount.");return}
+  if(!confirm("Set the fee to "+n+" MAD for all "+x.length+" students in “"+g.name+"”?"))return;x.forEach(s=>s.price=n);save();FL="Fee updated for "+x.length+" students.";draw();return}
+ if(D.gCsv){const x=sbG(id);dl((g.name.replace(/[^\w\-]+/g,"_")||"group")+".csv","﻿Name,Phone,Start,Price,Last paid,Next due,Status\n"+x.map(s=>{const i=info(s);return[s.name,s.phone,s.date,s.price,i.last!=null?fmt(i.last):"",i.due!=null?fmt(i.due):"",lab(i)].map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(",")}).join("\n"),"text/csv");return}
+ if(D.gMrg){openG("merge",id);return}
+ if(D.gDel){openG("del",id)}}
+const gSel=(ex,id="gSel")=>`<select id="${id}">${S.groups.filter(g=>g.id!==ex).slice().sort((a,b)=>a.name.localeCompare(b.name,undefined,{numeric:true})).map(g=>`<option value="${g.id}">${esc(g.name)} (${sbG(g.id).length})`).join("")}</select>`;
+let GD={};
+async function openG(mode,id){GD={mode,id,hasPw:null};const g=S.groups.find(x=>x.id===id),x=id?sbG(id):[],n=x.length,o=S.groups.filter(y=>y.id!==id),m=$("#gM");m.textContent="";
+ const set=(t,b,ok)=>{$("#gBody").onchange=null;$("#gT").textContent=t;$("#gBody").innerHTML=b;$("#gOk").textContent=ok;if(!$("#dG").open)$("#dG").showModal()};
+ if(mode==="move"){if(!SEL.size)return;if(!S.groups.length){alert("Create a group first.");return}set("Move "+SEL.size+" selected student"+(SEL.size===1?"":"s"),`<label>Move to group</label>${gSel(null)}`,"Move");return}
+ if(mode==="merge"){if(!o.length){alert("Create another group first.");return}set("Merge “"+g.name+"” into another group",`<p>${n?`All ${n} student${n===1?"":"s"} move`:"No students to move"}, then “${esc(g.name)}” is removed.</p><label>Merge into</label>${gSel(id)}`,"Merge");return}
+ if(mode==="del"){if(!n){if(confirm("Delete the empty group “"+g.name+"”?")){S.groups=S.groups.filter(y=>y.id!==id);if(F.g===id)F.g="";save();FL="Group deleted.";draw()}return}
+  const r=await sb.rpc("has_delete_password");GD.hasPw=r.error?null:r.data;
+  const pw=GD.hasPw?`<label>Delete password</label><input id="gP0" type="password" autocomplete="new-password">`:GD.hasPw===false?`<p>Create the delete password (6+ characters). You will need it for every bulk delete.</p><label>New password</label><input id="gP1" type="password" autocomplete="new-password"><label>Repeat password</label><input id="gP2" type="password" autocomplete="new-password">`:`<p class="bad">Permanent deletion is not installed yet (run upgrade3.sql).</p>`;
+  set("Delete “"+g.name+"”",`<p>This group has <b>${n} student${n===1?"":"s"}</b>. What should happen to them?</p>
+  <label class="r"><input type="radio" name="gA" value="mv" ${o.length?"checked":"disabled"}><span>Move them to another group, then delete this group</span></label><div class="sub">${o.length?gSel(id):"<span style='color:var(--mu)'>No other group exists.</span>"}</div>
+  <label class="r"><input type="radio" name="gA" value="del" ${o.length?"":"checked"}><span><b>Delete the group, its ${n} student${n===1?"":"s"} and all their payments</b> (cannot be undone)</span></label><div class="sub" id="gPw" ${o.length?"hidden":""}>${pw}</div>
+  <label class="r" id="gBkW" ${o.length?"hidden":""}><input type="checkbox" id="gBk" checked><span>Download a backup first</span></label>`,"Delete group");
+  $("#gBody").onchange=()=>{const c=document.querySelector('[name=gA]:checked');if(!c)return;const d=c.value==="del";$("#gPw").hidden=!d;$("#gBkW").hidden=!d;const s=$("#gSel");if(s)s.disabled=d}}}
+$("#gX").onclick=()=>$("#dG").close();
+$("#gOk").onclick=async()=>{const{mode,id}=GD,m=$("#gM"),v=i=>($("#"+i)||{}).value||"",btn=$("#gOk");m.textContent="";
+ const finish=msg=>{$("#dG").close();FL=msg;draw()},moveAll=(from,to)=>S.students.forEach(s=>{if(from(s))s.g=to});
+ if(mode==="move"){const to=v("gSel"),k=SEL.size;moveAll(s=>SEL.has(s.id),to);SEL.clear();save();finish(k+" student"+(k===1?"":"s")+" moved to “"+gn(to)+"”.");return}
+ if(mode==="merge"){const to=v("gSel");moveAll(s=>s.g===id,to);S.groups=S.groups.filter(y=>y.id!==id);if(F.g===id)F.g=to;save();finish("Groups merged into “"+gn(to)+"”.");return}
+ if(mode==="del"){const act=(document.querySelector("[name=gA]:checked")||{}).value;
+  if(act==="mv"){const to=v("gSel");if(!to)return;moveAll(s=>s.g===id,to);S.groups=S.groups.filter(y=>y.id!==id);if(F.g===id)F.g="";save();finish("Group deleted. Its students moved to “"+gn(to)+"”.");return}
+  if(GD.hasPw===null){m.textContent="Run upgrade3.sql in Supabase first.";return}
+  let pw=v("gP0");
+  if(GD.hasPw===false){if(v("gP1")!==v("gP2")){m.textContent="The two passwords do not match.";return}pw=v("gP1")}
+  else if(!pw){m.textContent="Enter the delete password.";return}
+  btn.disabled=true;try{
+   if(GD.hasPw===false){const r=await sb.rpc("set_delete_password",{new_pw:pw,old_pw:null});if(r.error){m.textContent=r.error.message;return}if(!r.data.ok){m.textContent=r.data.message;return}GD.hasPw=true}
+   await q;if($("#gBk").checked)$("#bBak").click();
+   const ids=sbG(id).map(s=>s.id),r=await sb.rpc("bulk_delete_students",{ids,pw});
+   if(r.error){m.textContent=r.error.message;return}if(!r.data.ok){m.textContent=r.data.message;if($("#gP0"))$("#gP0").value="";return}
+   await loadAll();S.groups=S.groups.filter(y=>y.id!==id);if(F.g===id)F.g="";save();await q;finish("Group and "+r.data.deleted+" student"+(r.data.deleted===1?"":"s")+" deleted.")}
+  finally{btn.disabled=false}}};
+document.addEventListener("input",e=>{if(e.target.id==="gq"){window.GQ=e.target.value;const pos=e.target.selectionStart;draw();const i=$("#gq");if(i){i.focus();i.setSelectionRange(pos,pos)}}});
+document.addEventListener("click",e=>{if(e.target.id==="gAdd")$("#bGrp").click()});
+/*END GROUPS*/
 boot();
 
 </script></body></html>
