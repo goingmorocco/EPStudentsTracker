@@ -34,7 +34,7 @@ dialog label{display:block;font-size:13px;color:var(--mu);margin:10px 0 3px}dial
 input:disabled,select:disabled{opacity:.5;cursor:not-allowed;background:var(--ac2)}.flash{background:var(--ac2);border:1px solid var(--ac);border-radius:8px;padding:10px 14px;margin-bottom:14px}
 .cd.wait{color:var(--warn);border:1px solid var(--warn)}.cd.done{background:var(--ok);color:#fff}.cd.lead{color:var(--ac);border:1px solid var(--ac)}.cd+.cd{margin-left:6px}
 td.wrap{white-space:normal;min-width:160px}
-#dR{width:min(900px,96vw)}#dR iframe{width:100%;height:62vh;border:1px solid var(--bd);border-radius:6px;background:#fff}#rpBar{display:flex;gap:10px;align-items:center;margin:0 0 10px}#rpBar input{width:auto}
+#dR{width:min(900px,96vw)}#dR iframe{width:100%;height:62vh;border:1px solid var(--bd);border-radius:6px;background:#fff}#rpBar{display:flex;gap:10px;align-items:center;margin:0 0 10px}#rpBar input{width:auto}.btn.danger{color:var(--bad);border-color:var(--bad)}.btn:disabled{opacity:.45;cursor:not-allowed}#dB p{margin:8px 0}#dB ul{margin:6px 0 10px;padding-left:20px}
 </style></head><body>
 <header><h1><span id="sch">Student Tracker</span><small id="sub">Portal · live data</small></h1>
 <nav><button id="t-dash" class="on">Dashboard</button> <button id="t-stu">Students</button> <button id="t-mon">Monthly</button> <button id="t-lead">Leads <b id="leadN" class="tag"></b></button> <button id="t-reg" hidden>New registration</button> <button id="t-rgs" hidden>Registrations <b id="rgsN" class="tag"></b></button> <button id="t-apr" hidden>Approvals <b id="aprN" class="tag"></b></button></nav>
@@ -48,6 +48,7 @@ td.wrap{white-space:normal;min-width:160px}
 <label>Notes</label><input id="sNo"><label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="sPa"> First payment received</label>
 <div class="row"><button class="btn" id="sUndo" style="margin-right:auto" hidden>Undo last payment</button><button class="btn" id="sX">Cancel</button><button class="btn pri" id="sOk">Save student</button></div></dialog>
 <dialog id="dR"><h2 id="rT" style="margin-top:0">Receipt</h2><div id="rpBar" hidden><label style="margin:0">Month</label><input type="month" id="rpM"></div><iframe id="rF" title="Preview"></iframe><p style="color:var(--mu);margin:8px 0 0;font-size:13px">Click Print / Save as PDF, then choose “Save as PDF” as the destination.</p><div class="row"><button class="btn" id="rX">Close</button><button class="btn pri" id="rPr">Print / Save as PDF</button></div></dialog>
+<dialog id="dB"><h2 id="bT" style="margin-top:0">Delete students</h2><div id="bBody"></div><p id="bM" class="bad" style="min-height:1.3em"></p><div class="row"><button class="btn" id="bX">Cancel</button><button class="btn danger" id="bOk">Delete</button></div></dialog>
 <dialog id="dI"><h2 style="margin-top:0">Import a list</h2><p style="color:var(--mu);margin:0 0 6px">One student per line: <b>name | phone | date | price | paid | note</b> (use 1 or OUI when paid). To import several groups at once, start each with a line like <b># Group name</b>. Pasting rows copied from Excel also works.</p>
 <label>Excel or CSV file (.xlsx, .csv, .txt)</label><input type="file" id="iF" accept=".xlsx,.xlsm,.csv,.tsv,.txt">
 <label>Existing group</label><select id="iG"></select><label>…or new group name</label><input id="iN" placeholder="e.g. A1 – Kenza G2"><label>Rows (a chosen file is converted here so you can review and fix it first)</label><textarea id="iT" rows="8"></textarea>
@@ -63,7 +64,7 @@ function imp(d,gname,text){let g=d.groups.find(x=>x.name===gname);if(!g){g={id:u
  let n=0;text.split(/\n/).forEach(l=>{if(!l.trim())return;const[a,p,dt,pr,pd,nt]=l.split(/\t|\||;/).map(x=>(x||"").trim());if(!a)return;
  if(isDup(d,g.id,a,p)){SKIP++;return}
  {const st={id:uid(),g:g.id,name:a,phone:(p||"").replace(/\s/g,""),date:dt||"",price:parseFloat(pr)||0,paid:/^(1|oui|yes|x|true)$/i.test(pd||""),note:nt||""};d.students.push(st);if(st.paid)d.pay.push({id:uid(),s:st.id,date:iso(st.date)||tIso(),amount:st.price,note:"",st:"confirmed"});n++}});return n}
-let S={groups:[],students:[],pay:[]},tab="dash",F={g:"",st:"",q:""},edit=null;
+const SEL=new Set();let S={groups:[],students:[],pay:[]},tab="dash",F={g:"",st:"",q:""},edit=null;
 const gn=id=>(S.groups.find(g=>g.id===id)||{}).name||"—",
 mk=d=>{const m=/(\d{1,2})\/(\d{1,2})\/(\d{4})/.exec(d||"");return m?m[3]+"-"+m[2].padStart(2,"0"):"No date"};
 const sb=supabase.createClient(CFG.url,CFG.key),ck=r=>{if(r.error)throw r.error;return r},
@@ -127,10 +128,12 @@ function dash(){const st=S.students,inf=Object.fromEntries(st.map(s=>[s.id,info(
 function stu(){const q=F.q.toLowerCase(),rk=s=>{const i=info(s);return i.due==null?9e15:i.due},
  l=S.students.filter(s=>{const i=info(s);return(!F.g||s.g===F.g)&&(!F.st||(F.st==="attn"?["over","today","soon"].includes(i.state):i.state===F.st))&&(!q||(s.name+s.phone).toLowerCase().includes(q))}).sort((a,b)=>rk(a)-rk(b)),
  o=[["","All payment statuses"],["attn","Needs reminder (overdue + due in 7 days)"],["over","Overdue"],["today","Due today"],["soon","Due in 1–7 days"],["ok","Up to date"],["nodate","No date"]];
+ {const vs=new Set(l.map(s=>s.id));[...SEL].forEach(id=>vs.has(id)||SEL.delete(id))}
+ const AD=ROLE==="admin";
  return`<div class=tools><input id=fq placeholder="Search name or phone" value="${esc(F.q)}"><select id=fg><option value="">All groups${S.groups.map(g=>`<option value="${g.id}"${F.g===g.id?" selected":""}>${esc(g.name)}`).join("")}</select>
- <select id=fs>${o.map(([v,t])=>`<option value="${v}"${F.st===v?" selected":""}>${t}`).join("")}</select><span class=tag style="align-self:center">${l.length} shown</span></div>
- <div class=pn><table><tr><th>Name<th>Group<th>Phone<th>Start<th class=n>Price<th>Last paid<th>Next due<th>Countdown<th></tr>${l.map(s=>{const i=info(s);return`<tr><td>${esc(s.name)}</td><td>${esc(gn(s.g))}</td><td>${esc(s.phone)}${WA(s.phone)}</td><td>${esc(s.date)}</td><td class=n>${s.price}</td>
- <td>${i.last!=null?fmt(i.last):"—"}</td><td>${i.due!=null?fmt(i.due):"—"}</td><td>${cd(i)}${pendTag(s)}</td><td><button class="btn pri" data-pay="${s.id}">Record payment</button>${rcB(s)}${ROLE==="admin"?` <button class=btn data-e="${s.id}">Edit</button> <button class=btn data-d="${s.id}">Delete</button>`:""}</td></tr>`}).join("")||'<tr><td colspan=9 class=empty>No students match.'}</table></div>`}
+ <select id=fs>${o.map(([v,t])=>`<option value="${v}"${F.st===v?" selected":""}>${t}`).join("")}</select><span class=tag style="align-self:center">${l.length} shown</span>${AD?` <button class="btn danger" id="bDel" ${SEL.size?"":"disabled"}>Delete selected (${SEL.size})</button>`:""}</div>
+ <div class=pn><table><tr>${AD?`<th><input type=checkbox data-selall aria-label="Select all shown"${l.length&&l.every(s=>SEL.has(s.id))?" checked":""}>`:""}<th>Name<th>Group<th>Phone<th>Start<th class=n>Price<th>Last paid<th>Next due<th>Countdown<th></tr>${l.map(s=>{const i=info(s);return`<tr>${AD?`<td><input type=checkbox data-sel="${s.id}" aria-label="Select ${esc(s.name)}"${SEL.has(s.id)?" checked":""}></td>`:""}<td>${esc(s.name)}</td><td>${esc(gn(s.g))}</td><td>${esc(s.phone)}${WA(s.phone)}</td><td>${esc(s.date)}</td><td class=n>${s.price}</td>
+ <td>${i.last!=null?fmt(i.last):"—"}</td><td>${i.due!=null?fmt(i.due):"—"}</td><td>${cd(i)}${pendTag(s)}</td><td><button class="btn pri" data-pay="${s.id}">Record payment</button>${rcB(s)}${ROLE==="admin"?` <button class=btn data-e="${s.id}">Edit</button> <button class=btn data-d="${s.id}">Delete</button>`:""}</td></tr>`}).join("")||`<tr><td colspan=10 class=empty>No students match.`}</table></div>`}
 function mon(){const inM=ms=>ms!=null&&mkey(ms)===MO,pays=S.pay.filter(x=>x.st!=="rejected"&&inM(tms(x.date))).sort((a,b)=>a.date<b.date?1:-1),news=S.students.filter(s=>inM(sms(s.date))),
  dues=S.students.map(s=>[s,info(s)]).filter(([s,i])=>inM(i.due)).sort((a,b)=>a[1].due-b[1].due),sOf=id=>S.students.find(s=>s.id===id)||{name:"—",g:null,phone:""},tot=pays.filter(okP).reduce((a,x)=>a+x.amount,0);
  const T=(h,r,e)=>`<div class=pn><table><tr>${h}</tr>${r||`<tr><td colspan=9 class=empty>${e}`}</table></div>`;
@@ -257,6 +260,9 @@ $("#app").onclick=async e=>{const t=e.target,k=t.closest("[data-fs]"),p=t.datase
  if(k){F.st=k.dataset.fs;F.g="";F.q="";tab="stu";draw();return}
  const go=t.closest("[data-go]");if(go){tab=go.dataset.go==="lead"?"lead":(ROLE==="admin"?"apr":"rgs");draw();return}
  if(t.dataset.mn!==undefined){MO=t.dataset.mn==="0"?mkey(today()):MO+ +t.dataset.mn;draw();return}
+ if(t.dataset.sel!==undefined){t.checked?SEL.add(t.dataset.sel):SEL.delete(t.dataset.sel);updSel();return}
+ if(t.dataset.selall!==undefined){document.querySelectorAll("[data-sel]").forEach(c=>{c.checked=t.checked;t.checked?SEL.add(c.dataset.sel):SEL.delete(c.dataset.sel)});updSel();return}
+ if(t.id==="bDel"){openDel();return}
  if(t.dataset.rc){openRc(t.dataset.rc);return}
  if(t.dataset.pay){openP(t.dataset.pay);return}
  const A=t.dataset,rl=async()=>{await q;await loadAll();draw()},up=async(tb,id,v)=>{const r=await sb.from(tb).update(v).eq("id",id);if(r.error){alert(r.error.message);return false}return true};
@@ -311,6 +317,37 @@ function openRep(){const k=$("#rpM").value?(+$("#rpM").value.slice(0,4))*12+(+$(
 $("#bRep").onclick=()=>{$("#rpM").value=new Date(today()).toISOString().slice(0,7);$("#dR").dataset.kind="rep";openRep()};
 $("#rpM").onchange=openRep;$("#rX").onclick=()=>$("#dR").close();$("#rPr").onclick=()=>{const w=$("#rF").contentWindow;w.focus();w.print()};
 /*END DOCS*/
+/*BULKDEL*/
+const updSel=()=>{const b=$("#bDel");if(b){b.textContent="Delete selected ("+SEL.size+")";b.disabled=!SEL.size}const a=document.querySelector("[data-selall]"),all=[...document.querySelectorAll("[data-sel]")];if(a)a.checked=all.length>0&&all.every(c=>c.checked)};
+let BM="del";
+function renderB(mode){BM=mode;const n=SEL.size,names=S.students.filter(s=>SEL.has(s.id)).map(s=>s.name),m=$("#bM");m.textContent="";
+ const F=(id,l,t="password")=>`<label>${l}</label><input id="${id}" type="${t}" autocomplete="new-password">`;
+ if(mode==="set"){$("#bT").textContent="Create the delete password";$("#bOk").textContent="Save password";$("#bBody").innerHTML=`<p>Bulk delete is protected by a password that only you, the admin, should know. Choose it now; you will type it every time you delete students in bulk. It is checked by the database and cannot be recovered, so keep it safe (you can change it later).</p>${F("bP1","New password (6+ characters)")}${F("bP2","Repeat password")}`}
+ else if(mode==="chg"){$("#bT").textContent="Change the delete password";$("#bOk").textContent="Change password";$("#bBody").innerHTML=F("bP0","Current password")+F("bP1","New password (6+ characters)")+F("bP2","Repeat new password")}
+ else{$("#bT").textContent="Delete "+n+" student"+(n===1?"":"s");$("#bOk").textContent="Delete permanently";
+  $("#bBody").innerHTML=`<p><b>This permanently deletes ${n} student${n===1?"":"s"} and all their payment history.</b> It cannot be undone.</p><ul>${names.slice(0,8).map(x=>`<li>${esc(x)}</li>`).join("")}${names.length>8?`<li>…and ${names.length-8} more</li>`:""}</ul>
+  <label style="display:flex;gap:8px;align-items:center;color:var(--tx)"><input type="checkbox" id="bBk" checked style="width:auto"> Download a backup first</label>${F("bP0","Delete password")}<p><a href="#" id="bCh">Change the delete password</a></p>`;
+  const c=$("#bCh");c.onclick=e=>{e.preventDefault();renderB("chg")}}
+ const f=$("#bP0")||$("#bP1");if(f)setTimeout(()=>f.focus(),30)}
+async function openDel(){if(ROLE!=="admin"||!SEL.size)return;const r=await sb.rpc("has_delete_password");
+ if(r.error){alert(/function|schema cache|does not exist/i.test(r.error.message)?"Bulk delete is not installed yet. Run upgrade3.sql in the Supabase SQL Editor first.":r.error.message);return}
+ renderB(r.data?"del":"set");$("#dB").showModal()}
+$("#bX").onclick=()=>$("#dB").close();
+$("#bOk").onclick=async()=>{const m=$("#bM"),v=id=>($("#"+id)||{}).value||"",btn=$("#bOk");m.textContent="";
+ if(BM==="set"||BM==="chg"){if(v("bP1")!==v("bP2")){m.textContent="The two passwords do not match.";return}
+  btn.disabled=true;const r=await sb.rpc("set_delete_password",{new_pw:v("bP1"),old_pw:BM==="chg"?v("bP0"):null});btn.disabled=false;
+  if(r.error){m.textContent=r.error.message;return}if(!r.data.ok){m.textContent=r.data.message;return}
+  renderB("del");$("#bM").style.color="var(--ok,green)";$("#bM").textContent="Password saved.";setTimeout(()=>{$("#bM").style.color=""},4000);return}
+ if(!v("bP0")){m.textContent="Enter the delete password.";return}
+ const ids=[...SEL];if(!ids.length){$("#dB").close();return}
+ btn.disabled=true;try{await q;
+  if($("#bBk").checked)$("#bBak").click();
+  const r=await sb.rpc("bulk_delete_students",{ids,pw:v("bP0")});
+  if(r.error){m.textContent=r.error.message;return}
+  if(!r.data.ok){m.textContent=r.data.message;$("#bP0").value="";return}
+  SEL.clear();$("#dB").close();FL=r.data.deleted+" student"+(r.data.deleted===1?"":"s")+" deleted.";await loadAll();draw()}
+ finally{btn.disabled=false}};
+/*END BULKDEL*/
 boot();
 
 </script></body></html>
