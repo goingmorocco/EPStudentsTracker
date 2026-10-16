@@ -46,6 +46,7 @@ td.wrap{white-space:normal;min-width:160px}
 <label>Full name</label><input id="sN"><label>Phone</label><input id="sP"><label>Group</label><select id="sG"></select>
 <label>Start date (dd/mm/yyyy)</label><input id="sD"><label>Price (MAD)</label><input id="sPr" type="number" min="0">
 <label>Notes</label><input id="sNo"><label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="sPa"> First payment received</label>
+<div id="sHist"></div>
 <div class="row"><button class="btn" id="sUndo" style="margin-right:auto" hidden>Undo last payment</button><button class="btn" id="sX">Cancel</button><button class="btn pri" id="sOk">Save student</button></div></dialog>
 <dialog id="dR"><h2 id="rT" style="margin-top:0">Receipt</h2><div id="rpBar" hidden><label style="margin:0">Month</label><input type="month" id="rpM"></div><iframe id="rF" title="Preview"></iframe><p style="color:var(--mu);margin:8px 0 0;font-size:13px">Click Print / Save as PDF, then choose “Save as PDF” as the destination.</p><div class="row"><button class="btn" id="rX">Close</button><button class="btn pri" id="rPr">Print / Save as PDF</button></div></dialog>
 <dialog id="dB"><h2 id="bT" style="margin-top:0">Delete students</h2><div id="bBody"></div><p id="bM" class="bad" style="min-height:1.3em"></p><div class="row"><button class="btn" id="bX">Cancel</button><button class="btn danger" id="bOk">Delete</button></div></dialog>
@@ -59,12 +60,12 @@ td.wrap{white-space:normal;min-width:160px}
 const ROLE="admin";
 const $=s=>document.querySelector(s),uid=()=>crypto.randomUUID(),
 M=n=>Math.round(n).toLocaleString("en")+" MAD",esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
-let SKIP=0;const nk=s=>String(s||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/\s+/g," ").trim(),dg=s=>String(s||"").replace(/\D/g,"").slice(-9),
+let SKIP=0,NODT=0;const nk=s=>String(s||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/\s+/g," ").trim(),dg=s=>String(s||"").replace(/\D/g,"").slice(-9),
 isDup=(d,gid,name,phone)=>d.students.some(x=>x.g===gid&&nk(x.name)===nk(name)&&(!dg(x.phone)||!dg(phone)||dg(x.phone)===dg(phone)));
 function imp(d,gname,text){let g=d.groups.find(x=>x.name===gname);if(!g){g={id:uid(),name:gname};d.groups.push(g)}
  let n=0;text.split(/\n/).forEach(l=>{if(!l.trim())return;const[a,p,dt,pr,pd,nt]=l.split(/\t|\||;/).map(x=>(x||"").trim());if(!a)return;
  if(isDup(d,g.id,a,p)){SKIP++;return}
- {const st={id:uid(),g:g.id,name:a,phone:(p||"").replace(/\s/g,""),date:dt||"",price:parseFloat(pr)||0,paid:/^(1|oui|yes|x|true)$/i.test(pd||""),note:nt||""};d.students.push(st);if(st.paid)d.pay.push({id:uid(),s:st.id,date:iso(st.date)||tIso(),amount:st.price,note:"",st:"confirmed"});n++}});return n}
+ {const st={id:uid(),g:g.id,name:a,phone:(p||"").replace(/\s/g,""),date:dt||"",price:parseFloat(pr)||0,paid:/^(1|oui|yes|x|true)$/i.test(pd||""),note:nt||""};d.students.push(st);if(st.paid){const di=iso(st.date);if(di)d.pay.push({id:uid(),s:st.id,date:di,amount:st.price,note:"",st:"confirmed"});else NODT++}n++}});return n}
 const SEL=new Set();let S={groups:[],students:[],pay:[]},tab="dash",F={g:"",st:"",q:""},edit=null;
 const gn=id=>(S.groups.find(g=>g.id===id)||{}).name||"—",
 mk=d=>{const m=/(\d{1,2})\/(\d{1,2})\/(\d{4})/.exec(d||"");return m?m[3]+"-"+m[2].padStart(2,"0"):"No date"};
@@ -141,7 +142,7 @@ function mon(){const inM=ms=>ms!=null&&mkey(ms)===MO,pays=S.pay.filter(x=>x.st!=
  return`<div class=mnav><button class=btn data-mn="-1" aria-label="Previous month">‹</button><b>${mname(MO)}</b><button class=btn data-mn="1" aria-label="Next month">›</button><button class=btn data-mn="0">This month</button></div>
  <div class=kpis><div class=kpi><span>New students</span><b>${news.length}</b></div><div class=kpi><span>Payments received</span><b class=ok>${pays.filter(okP).length}</b></div><div class=kpi><span>Collected</span><b class=ok>${M(tot)}</b></div>
  <div class=kpi><span>Next due dates in month</span><b>${dues.length}</b></div><div class=kpi><span>Amount due</span><b class=warn>${M(dues.reduce((a,[s])=>a+s.price,0))}</b></div></div>
- <h2>Payments received</h2>${T("<th>Date<th>Student<th>Group<th class=n>Amount<th>Note<th>",pays.map(x=>{const s=sOf(x.s);return`<tr><td>${fmt(tms(x.date))}</td><td>${esc(s.name)}${WA(s.phone)}</td><td>${esc(gn(s.g))}</td><td class=n>${M(x.amount)}</td><td>${esc(x.note)}${x.st==="pending"?' <span class="cd wait">Awaiting confirmation</span>':""}</td><td>${okP(x)?`<button class=btn data-rc="${x.id}">Receipt</button>`:""}</td></tr>`}).join(""),"No payments recorded this month.")}
+ <h2>Payments received</h2>${T("<th>Date<th>Student<th>Group<th class=n>Amount<th>Note<th>",pays.map(x=>{const s=sOf(x.s);return`<tr><td>${fmt(tms(x.date))}</td><td>${esc(s.name)}${WA(s.phone)}</td><td>${esc(gn(s.g))}</td><td class=n>${M(x.amount)}</td><td>${esc(x.note)}${x.st==="pending"?' <span class="cd wait">Awaiting confirmation</span>':""}</td><td>${okP(x)?`<button class=btn data-rc="${x.id}">Receipt</button>`:""}${ROLE==="admin"?` <button class=btn data-pe="${x.id}">Edit</button>`:""}</td></tr>`}).join(""),"No payments recorded this month.")}
  <h2>Next payment due this month</h2>${T("<th>Due date<th>Student<th>Group<th class=n>Price<th>Countdown<th>",dues.map(([s,i])=>`<tr><td>${fmt(i.due)}</td><td>${esc(s.name)}${WA(s.phone)}</td><td>${esc(gn(s.g))}</td><td class=n>${s.price}</td><td>${cd(i)}</td><td><button class="btn pri" data-pay="${s.id}">Record payment</button></td></tr>`).join(""),"No payments fall due this month.")}
  <h2>New students</h2>${T("<th>Start date<th>Student<th>Group<th class=n>Price",news.map(s=>`<tr><td>${esc(s.date)}</td><td>${esc(s.name)}${WA(s.phone)}</td><td>${esc(gn(s.g))}</td><td class=n>${s.price}</td></tr>`).join(""),"No students started this month.")}`}
 const staffName=id=>(STF.find(p=>p.id===id)||{}).full_name||"—",badge=b=>`<span class="cd ${({approved:"done",pending:"wait",rejected:"over",lead:"lead"})[b]||"ok"}">${({approved:"Approved",pending:"Waiting for approval",rejected:"Rejected",lead:"Lead"})[b]||b}</span>`;
@@ -198,10 +199,10 @@ function draw(){const V={dash,stu,mon,grp,lead:leads,reg:regForm,rgs,apr};$("#ap
 const opts=()=>S.groups.map(g=>`<option value="${g.id}">${esc(g.name)}`).join("");
 function openS(id){edit=id;const s=S.students.find(x=>x.id===id)||{name:"",phone:"",date:"",price:500,paid:false,note:"",g:F.g||(S.groups[0]||{}).id};
  if(!S.groups.length){alert("Create a group first with “Import list”.");return}
- $("#dSt").textContent=id?"Edit student":"Add student";$("#sG").innerHTML=opts();$("#sN").value=s.name;$("#sP").value=s.phone;$("#sG").value=s.g;$("#sD").value=s.date;$("#sPr").value=s.price;$("#sNo").value=s.note||"";$("#sPa").checked=s.paid;$("#sUndo").hidden=!(id&&S.pay.some(x=>x.s===id));$("#dS").showModal()}
+ $("#dSt").textContent=id?"Edit student":"Add student";$("#sG").innerHTML=opts();$("#sN").value=s.name;$("#sP").value=s.phone;$("#sG").value=s.g;$("#sD").value=s.date;$("#sPr").value=s.price;$("#sNo").value=s.note||"";$("#sPa").checked=s.paid;$("#sUndo").hidden=!(id&&S.pay.some(x=>x.s===id));renderHist(id);$("#dS").showModal()}
 $("#sOk").onclick=()=>{const v={name:$("#sN").value.trim(),phone:$("#sP").value.trim(),g:$("#sG").value,date:$("#sD").value.trim(),price:parseFloat($("#sPr").value)||0,note:$("#sNo").value.trim()},first=$("#sPa").checked;
- if(!v.name){$("#sN").focus();return}const id=edit||uid();if(edit)Object.assign(S.students.find(x=>x.id===edit),v);else S.students.push({id,paid:false,...v});
- if(first&&!S.pay.some(x=>x.s===id))S.pay.push({id:uid(),s:id,date:iso(v.date)||tIso(),amount:v.price,note:"",st:"confirmed"});save();$("#dS").close();draw()};
+ if(!v.name){$("#sN").focus();return}if(first&&!iso(v.date)&&!(edit&&S.pay.some(x=>x.s===edit))){alert("To record the first payment, enter the start date as dd/mm/yyyy (it is used as the payment date). You can also leave the box unticked and use Record payment with the real date.");return}const id=edit||uid();if(edit)Object.assign(S.students.find(x=>x.id===edit),v);else S.students.push({id,paid:false,...v});
+ if(first&&!S.pay.some(x=>x.s===id))S.pay.push({id:uid(),s:id,date:iso(v.date),amount:v.price,note:"",st:"confirmed"});save();$("#dS").close();draw()};
 $("#sUndo").onclick=()=>{const l=S.pay.filter(x=>x.s===edit&&okP(x)).sort((a,b)=>a.date<b.date?1:-1)[0];if(l&&confirm("Remove the payment of "+l.amount+" MAD dated "+fmt(tms(l.date))+"?")){S.pay=S.pay.filter(x=>x.id!==l.id);save();$("#dS").close();draw()}};
 let payId=null;const pHint=()=>{const t=tms($("#pD").value);$("#pH").textContent=t?"Next payment will be due on "+fmt(t+31*DAY)+" (31 days later)."+(ROLE==="staff"?" It counts once the admin confirms it.":""):""};
 function openP(id){payId=id;const s=S.students.find(x=>x.id===id);$("#pT").textContent="Record payment – "+s.name;$("#pD").value=tIso();$("#pA").value=s.price;$("#pN").value="";pHint();$("#dP").showModal()}
@@ -213,11 +214,11 @@ $("#pOk").onclick=async()=>{if(!tms($("#pD").value)){$("#pD").focus();return}con
 $("#sX").onclick=()=>$("#dS").close();$("#bAdd").onclick=()=>openS(null);
 $("#bGrp").onclick=()=>{const v=(prompt("New group name")||"").trim();if(!v)return;if(S.groups.some(g=>g.name.toLowerCase()===v.toLowerCase())){alert("That group already exists.");return}S.groups.push({id:uid(),name:v});save();draw()};
 $("#bImp").onclick=()=>{$("#iG").innerHTML='<option value="">—</option>'+opts();$("#iN").value="";$("#iT").value="";$("#dI").showModal()};$("#iX").onclick=()=>$("#dI").close();
-$("#iOk").onclick=()=>{SKIP=0;let cur=$("#iN").value.trim()||(S.groups.find(g=>g.id===$("#iG").value)||{}).name,buf=[],n=0,gs=new Set,bad=false;
+$("#iOk").onclick=()=>{SKIP=0;NODT=0;let cur=$("#iN").value.trim()||(S.groups.find(g=>g.id===$("#iG").value)||{}).name,buf=[],n=0,gs=new Set,bad=false;
  const fl=()=>{if(!buf.join("").trim()){buf=[];return}if(!cur){bad=true;buf=[];return}n+=imp(S,cur,buf.join("\n"));gs.add(cur);buf=[]};
  $("#iT").value.split("\n").forEach(l=>{if(l.trim().startsWith("#")){fl();cur=l.trim().slice(1).trim()}else buf.push(l)});fl();
  if(bad){alert("Choose a group, type a new group name, or start the list with a # Group name line.");return}
- save();$("#dI").close();alert(n+" new students imported into "+gs.size+" group(s)."+(SKIP?"\n"+SKIP+" already existed (same group and name) and were skipped.":""));draw()};
+ save();$("#dI").close();alert(n+" new students imported into "+gs.size+" group(s)."+(SKIP?"\n"+SKIP+" already existed (same group and name) and were skipped.":"")+(NODT?"\n\n"+NODT+" student"+(NODT===1?" is":"s are")+" marked paid but have no readable start date (use dd/mm/yyyy), so NO payment was recorded for "+(NODT===1?"them":"them")+". Open the student, add the start date or record the payment with its real date.":""));draw()};
 async function unzip(buf){const u=new Uint8Array(buf),dv=new DataView(buf),td=new TextDecoder();let e=u.length-22;while(e>=0&&dv.getUint32(e,true)!==0x06054b50)e--;
  const n=dv.getUint16(e+10,true);let p=dv.getUint32(e+16,true);const out={};
  for(let i=0;i<n;i++){const m=dv.getUint16(p+10,true),cs=dv.getUint32(p+20,true),nl=dv.getUint16(p+28,true),xl=dv.getUint16(p+30,true),cl=dv.getUint16(p+32,true),lo=dv.getUint32(p+42,true),name=td.decode(u.subarray(p+46,p+46+nl));p+=46+nl+xl+cl;
@@ -266,6 +267,7 @@ $("#app").onclick=async e=>{const t=e.target,k=t.closest("[data-fs]"),p=t.datase
  if(t.id==="bDel"){openDel();return}
  if(t.id==="bMv"){openG("move");return}
  {const D=t.dataset,gid=D.gRen||D.gFee||D.gMrg||D.gDel||D.gCsv||D.gView;if(gid){grpAct(D,gid);return}}
+ if(t.dataset.pe){editPay(t.dataset.pe);return}
  if(t.dataset.rc){openRc(t.dataset.rc);return}
  if(t.dataset.pay){openP(t.dataset.pay);return}
  const A=t.dataset,rl=async()=>{await q;await loadAll();draw()},up=async(tb,id,v)=>{const r=await sb.from(tb).update(v).eq("id",id);if(r.error){alert(r.error.message);return false}return true};
@@ -406,6 +408,15 @@ $("#gOk").onclick=async()=>{const{mode,id}=GD,m=$("#gM"),v=i=>($("#"+i)||{}).val
 document.addEventListener("input",e=>{if(e.target.id==="gq"){window.GQ=e.target.value;const pos=e.target.selectionStart;draw();const i=$("#gq");if(i){i.focus();i.setSelectionRange(pos,pos)}}});
 document.addEventListener("click",e=>{if(e.target.id==="gAdd")$("#bGrp").click()});
 /*END GROUPS*/
+/*PAYEDIT*/
+const pDate=s=>{s=(s||"").trim();const a=iso(s);if(a)return a;return /^\d{4}-\d\d-\d\d$/.test(s)&&tms(s)!=null?s:null},stLab={confirmed:"Confirmed",pending:"Waiting for confirmation",rejected:"Rejected"};
+function editPay(id){if(ROLE!=="admin")return;const x=S.pay.find(z=>z.id===id);if(!x)return;const d=prompt("Payment date (dd/mm/yyyy)",dmy(x.date));if(d===null)return;const nd=pDate(d);if(!nd){alert("Enter the date as dd/mm/yyyy.");return}
+ const a=prompt("Amount (MAD)",x.amount);if(a===null)return;const na=parseFloat(a);if(!(na>=0)){alert("Enter a valid amount.");return}x.date=nd;x.amount=na;save();FL="Payment updated.";draw();if($("#dS").open)renderHist(edit)}
+function renderHist(id){const el=$("#sHist");if(!id){el.innerHTML="";return}const ps=S.pay.filter(x=>x.s===id).sort((a,b)=>a.date<b.date?1:-1);
+ el.innerHTML=ps.length?`<label>Payments (fix a wrong date here)</label><table style="width:100%;font-size:13px">${ps.map(x=>`<tr><td>${fmt(tms(x.date))}</td><td>${M(x.amount)}</td><td style="color:var(--mu)">${stLab[x.st||"confirmed"]||""}</td><td style="text-align:right;white-space:nowrap"><button class=btn data-pe="${x.id}">Change</button> <button class=btn data-pdel="${x.id}">Remove</button></td></tr>`).join("")}</table>`:""}
+$("#sHist").onclick=e=>{const t=e.target;if(t.dataset.pe){editPay(t.dataset.pe);return}
+ if(t.dataset.pdel){const x=S.pay.find(z=>z.id===t.dataset.pdel);if(x&&confirm("Remove the payment of "+x.amount+" MAD dated "+fmt(tms(x.date))+"?")){S.pay=S.pay.filter(z=>z.id!==x.id);save();draw();renderHist(edit);$("#sUndo").hidden=!S.pay.some(z=>z.s===edit)}}};
+/*END PAYEDIT*/
 boot();
 
 </script></body></html>
