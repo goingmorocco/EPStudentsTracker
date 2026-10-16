@@ -3,25 +3,41 @@
 <style>
 :root{--bg:#eef2f1;--pn:#fff;--tx:#10231f;--mu:#5d716c;--bd:#d5dfdc;--ac:#0f5c63;--ac2:#e6f1f0;--ok:#1f7a45;--bad:#b3261e}
 @media(prefers-color-scheme:dark){:root{--bg:#0d1716;--pn:#14221f;--tx:#e6f0ee;--mu:#8fa6a1;--bd:#253935;--ac:#4fc3c9;--ac2:#18302e;--ok:#4cc982;--bad:#ff8a80}}
-*{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;background:var(--bg);color:var(--tx);font:15px/1.45 "Segoe UI",system-ui,sans-serif}
+[hidden]{display:none!important}*{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;background:var(--bg);color:var(--tx);font:15px/1.45 "Segoe UI",system-ui,sans-serif}
 .card{width:min(420px,92vw);background:var(--pn);border:1px solid var(--bd);border-top:3px solid var(--ac);border-radius:10px;padding:26px}
 h1{margin:0;font:700 22px Georgia,serif}p.sub{margin:2px 0 18px;color:var(--mu)}
 .tabs{display:flex;gap:6px;margin-bottom:14px}.tabs button{flex:1}
 button{font:inherit;border:1px solid var(--bd);background:var(--pn);color:var(--tx);padding:9px 14px;border-radius:6px;cursor:pointer}button.on,button.pri{background:var(--ac);color:#fff;border-color:var(--ac)}
 label{display:block;font-size:13px;color:var(--mu);margin:12px 0 3px}input{width:100%;font:inherit;padding:9px 10px;border:1px solid var(--bd);border-radius:6px;background:var(--pn);color:var(--tx)}
-.pri{width:100%;margin-top:16px}#msg{min-height:1.4em;margin:12px 0 0}#msg.bad{color:var(--bad)}#msg.ok{color:var(--ok)}
+a{color:var(--ac)}.pri{width:100%;margin-top:16px}#msg{min-height:1.4em;margin:12px 0 0}#msg.bad{color:var(--bad)}#msg.ok{color:var(--ok)}
 </style></head><body>
 <div class="card"><h1 id="sch">Student Tracker</h1><p class="sub">Staff portal</p>
 <div class="tabs"><button id="tIn" class="on">Sign in</button><button id="tUp">Request access</button></div>
-<div id="fIn"><label>Email</label><input id="iE" type="email" autocomplete="username"><label>Password</label><input id="iP" type="password" autocomplete="current-password"><button class="pri" id="bIn">Sign in</button></div>
+<div id="fIn"><label>Email</label><input id="iE" type="email" autocomplete="username"><label>Password</label><input id="iP" type="password" autocomplete="current-password"><button class="pri" id="bIn">Sign in</button><p style="margin:12px 0 0;text-align:center"><a href="#" id="lForgot">Forgot your password?</a></p></div>
+<div id="fFg" hidden><p style="margin:0 0 4px;color:var(--mu)">Enter your account email. We will send you a link to choose a new password.</p><label>Email</label><input id="fE" type="email" autocomplete="username"><button class="pri" id="bFg">Send reset link</button><p style="margin:12px 0 0;text-align:center"><a href="#" id="lBack">Back to sign in</a></p></div>
+<div id="fNw" hidden><p style="margin:0 0 4px;color:var(--mu)">Choose a new password for your account.</p><label>New password (8+ characters)</label><input id="nP" type="password" autocomplete="new-password"><label>Repeat new password</label><input id="nQ" type="password" autocomplete="new-password"><button class="pri" id="bNw">Save new password</button></div>
 <div id="fUp" hidden><label>Full name</label><input id="uN" autocomplete="name"><label>Email</label><input id="uE" type="email" autocomplete="username"><label>Password (8+ characters)</label><input id="uP" type="password" autocomplete="new-password"><button class="pri" id="bUp">Request access</button></div>
 <p id="msg"></p></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script><script src="config.js"></script>
 <script>
 const sb=supabase.createClient(CFG.url,CFG.key),$=s=>document.querySelector(s),msg=(t,bad)=>{$("#msg").textContent=t;$("#msg").className=bad?"bad":"ok"};
 $("#sch").textContent=CFG.name||"Student Tracker";document.title="Sign in – "+$("#sch").textContent;
-const show=u=>{$("#fIn").hidden=!u;$("#fUp").hidden=u;$("#tIn").className=u?"on":"";$("#tUp").className=u?"":"on";msg("")};
+const show=u=>{$("#fIn").hidden=!u;$("#fUp").hidden=u;$("#fFg").hidden=true;$("#fNw").hidden=true;$(".tabs").hidden=false;$("#tIn").className=u?"on":"";$("#tUp").className=u?"":"on";msg("")};
 $("#tIn").onclick=()=>show(true);$("#tUp").onclick=()=>show(false);
+const only=id=>{["fIn","fUp","fFg","fNw"].forEach(f=>$("#"+f).hidden=f!==id);$(".tabs").hidden=id==="fNw"||id==="fFg";msg("")};
+let RECOVERY=/type=recovery/.test(location.hash)||/type=recovery/.test(location.search);
+const hp=new URLSearchParams(location.hash.slice(1)||location.search.slice(1)),LINKERR=hp.get("error_description");
+$("#lForgot").onclick=e=>{e.preventDefault();only("fFg");$("#fE").value=$("#iE").value.trim()};
+$("#lBack").onclick=e=>{e.preventDefault();show(true)};
+$("#bFg").onclick=async()=>{const m=$("#fE").value.trim();if(!m){msg("Enter your email address.",1);return}
+ const b=$("#bFg");b.disabled=true;const{error}=await sb.auth.resetPasswordForEmail(m,{redirectTo:location.href.split("#")[0].split("?")[0]});b.disabled=false;
+ if(error){msg(error.message,1);return}msg("If that email has an account, a reset link is on its way. Check your inbox (and spam). The link works once and expires after a while.")};
+sb.auth.onAuthStateChange(ev=>{if(ev==="PASSWORD_RECOVERY"){RECOVERY=true;only("fNw")}});
+$("#bNw").onclick=async()=>{const a=$("#nP").value,b=$("#nQ").value;if(a.length<8){msg("The password needs at least 8 characters.",1);return}if(a!==b){msg("The two passwords do not match.",1);return}
+ let s=null;for(let i=0;i<10&&!s;i++){s=(await sb.auth.getSession()).data.session;if(!s)await new Promise(r=>setTimeout(r,200))}
+ if(!s){msg("This reset link is no longer valid. Request a new one.",1);return}
+ const btn=$("#bNw");btn.disabled=true;const{error}=await sb.auth.updateUser({password:a});btn.disabled=false;if(error){msg(error.message,1);return}
+ RECOVERY=false;history.replaceState(null,"",location.pathname);msg("Password updated. Signing you in…");setTimeout(route,600)};
 async function route(){const{data:{session}}=await sb.auth.getSession();if(!session)return;
  const{data:p,error}=await sb.from("profiles").select("role,status").eq("id",session.user.id).maybeSingle();
  if(error||!p){msg("Your profile could not be loaded. Please try again.",1);return}
@@ -32,5 +48,7 @@ $("#bIn").onclick=async()=>{const{error}=await sb.auth.signInWithPassword({email
 $("#bUp").onclick=async()=>{const n=$("#uN").value.trim(),e=$("#uE").value.trim(),p=$("#uP").value;if(!n||!e||p.length<8){msg("Enter your name, email and a password of at least 8 characters.",1);return}
  const{data,error}=await sb.auth.signUp({email:e,password:p,options:{data:{full_name:n}}});if(error){msg(error.message,1);return}
  if(data.session)await sb.auth.signOut();show(true);msg("Request sent. The main admin must approve it before you can sign in."+(data.session?"":" If you received a confirmation email, confirm it first."))};
-route();
+if(RECOVERY)only("fNw");
+else if(LINKERR){show(true);msg(/expired|invalid/i.test(LINKERR)?"That reset link is invalid or has expired. Use “Forgot your password?” to get a new one.":LINKERR.replace(/\+/g," "),1);history.replaceState(null,"",location.pathname)}
+else route();
 </script></body></html>
